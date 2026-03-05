@@ -1,7 +1,15 @@
 # ============================================================
 # Tourism News Text Analysis Dashboard
 # EPPS 6356 - Data Visualization (Fall 2025)
-# app.R  (place in: shiny_app/app.R)
+# app.R (place in repo root)
+# Repo structure:
+#   app.R
+#   data/
+#     topics_results.csv
+#     article_metadata.csv
+#     state_mentions.csv
+#     top_words.csv
+#     sentiment_timeline.csv
 # ============================================================
 
 library(shiny)
@@ -14,17 +22,24 @@ library(viridis)
 library(wordcloud)
 
 # ---- Safe loader -------------------------------------------------
-
 safe_read_csv <- function(path) {
   if (file.exists(path)) read_csv(path, show_col_types = FALSE) else NULL
 }
 
-# NOTE: paths are relative to shiny_app/
-topics_results     <- safe_read_csv("data/topics_results.csv")
-article_data       <- safe_read_csv("data/article_metadata.csv")
-state_mentions     <- safe_read_csv("data/state_mentions.csv")
-top_words          <- safe_read_csv("data/top_words.csv")
-sentiment_timeline <- safe_read_csv("data/sentiment_timeline.csv")
+# ---- Robust paths (so it runs regardless of working directory) ---
+app_dir  <- tryCatch(normalizePath(dirname(sys.frame(1)$ofile)), error = function(e) NULL)
+if (is.null(app_dir) || is.na(app_dir)) {
+  # fallback: current working directory (common when run in console)
+  app_dir <- getwd()
+}
+data_dir <- file.path(app_dir, "data")
+
+topics_results     <- safe_read_csv(file.path(data_dir, "topics_results.csv"))
+article_data       <- safe_read_csv(file.path(data_dir, "article_metadata.csv"))
+state_mentions     <- safe_read_csv(file.path(data_dir, "state_mentions.csv"))
+top_words          <- safe_read_csv(file.path(data_dir, "top_words.csv"))
+sentiment_timeline <- safe_read_csv(file.path(data_dir, "sentiment_timeline.csv"))
+
 
 # Topic labels (for dropdown)
 topic_labels <- c(
@@ -221,6 +236,14 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  if (is.null(article_data) || is.null(topics_results)) {
+    showNotification(
+      "Missing required data files in /data. Please download the full repo.",
+      type = "error",
+      duration = NULL
+    )
+  }
+
   # -------- Metric cards --------
   
   output$ta_total_articles <- renderText({
@@ -437,8 +460,8 @@ server <- function(input, output, session) {
       options  = list(
         pageLength = 25,
         autoWidth  = TRUE,
-        searching  = FALSE,   # no global search box
-        dom        = "tip"    # table + information + pagination
+        searching  = TRUE,   # no global search box
+        dom        = "ftip"    # table + information + pagination
       ),
       rownames = FALSE
     )
